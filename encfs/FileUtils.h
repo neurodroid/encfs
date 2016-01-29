@@ -56,7 +56,11 @@ struct EncFS_Root {
 
 typedef shared_ptr<EncFS_Root> RootPtr;
 
-enum ConfigMode { Config_Prompt, Config_Standard, Config_Paranoia };
+enum ConfigMode { Config_Prompt, Config_Standard, Config_Paranoia
+#ifdef ANDROID    
+                  , Config_Compatible, Config_Quick
+#endif
+};
 
 /**
  * EncFS_Opts stores internal settings
@@ -76,6 +80,10 @@ struct EncFS_Opts {
   std::string passwordProgram;  // path to password program (or empty)
   bool useStdin;  // read password from stdin rather then prompting
   bool annotate;  // print annotation line prompt to stderr.
+#ifdef ANDROID
+  std::string password; // supply password directly if encfs is used as a library
+  std::string configOverride; // override config file location
+#endif
 
   bool ownerCreate;  // set owner of new files to caller
 

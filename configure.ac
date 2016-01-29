@@ -64,46 +64,46 @@ LDFLAGS="$LDFLAGS $PTHREAD_LIBS $USER_LDFLAGS $FUSE_LIBS"
 AX_CXX_COMPILE_STDCXX_11
 
 dnl Look for fuse headers.
-AX_EXT_HAVE_HEADER(fuse.h, /usr/include/fuse /usr/local/include/fuse \
-                   /opt/include/fuse /opt/local/include/fuse \
-                   /usr/include/osxfuse /usr/local/include/osxfuse \
-                   /opt/local/include/osxfuse)
+dnl AX_EXT_HAVE_HEADER(fuse.h, /usr/include/fuse /usr/local/include/fuse \
+dnl                    /opt/include/fuse /opt/local/include/fuse \
+dnl                    /usr/include/osxfuse /usr/local/include/osxfuse \
+dnl                    /opt/local/include/osxfuse)
 
 dnl Ensure the necessary paths are added to LDPATH
-AX_EXT_HAVE_LIB(/usr/lib /usr/local/lib /opt/lib /opt/local/lib, fuse,
-                fuse_mount, [])
-AX_EXT_HAVE_LIB(/usr/lib /usr/local/lib /opt/lib /opt/local/lib, osxfuse,
-                fuse_mount, [])
+dnl AX_EXT_HAVE_LIB(/usr/lib /usr/local/lib /opt/lib /opt/local/lib, fuse,
+dnl                 fuse_mount, [])
+dnl AX_EXT_HAVE_LIB(/usr/lib /usr/local/lib /opt/lib /opt/local/lib, osxfuse,
+dnl                 fuse_mount, [])
 
 if test "$GXX" = "yes"; then
     CXXFLAGS="-W -Wall -Wpointer-arith -Wwrite-strings $CXXFLAGS"
     dnl CXXFLAGS="$CXXFLAGS -Wformat=2 -Wconversion"
 fi
 
-if test -z "${DARWIN_TRUE}"; then
-    dnl Prefer OSXFuse, but fall back to libfuse.
-    AC_CHECK_LIB(osxfuse, fuse_new, [FUSE_LIBS="$FUSE_LIBS -losxfuse"],
-        AC_CHECK_LIB(fuse, fuse_new, [FUSE_LIBS="$FUSE_LIBS -lfuse"],
-                    AC_MSG_ERROR([Unable to find libfuse or libosxfuse.])))
-else
+dnl if test -z "${DARWIN_TRUE}"; then
+dnl     dnl Prefer OSXFuse, but fall back to libfuse.
+dnl     AC_CHECK_LIB(osxfuse, fuse_new, [FUSE_LIBS="$FUSE_LIBS -losxfuse"],
+dnl         AC_CHECK_LIB(fuse, fuse_new, [FUSE_LIBS="$FUSE_LIBS -lfuse"],
+dnl                     AC_MSG_ERROR([Unable to find libfuse or libosxfuse.])))
+dnl else
     AC_CHECK_LIB(fuse, fuse_new, [FUSE_LIBS="$FUSE_LIBS -lfuse"],
                  AC_MSG_ERROR([Unable to find libfuse.]))
-fi
+dnl fi
 
 # check for a supported FUSE_MAJOR_VERSION.
-AC_MSG_CHECKING([For supported FUSE API version])
-AC_RUN_IFELSE([
-    AC_LANG_PROGRAM([[#include "fuse.h"]],
-[[
-    if (FUSE_MAJOR_VERSION < 2) return -1;
-    if (FUSE_MAJOR_VERSION > 2) return 0;
-    return FUSE_MINOR_VERSION >= 5 ? 0 : -1;
-]])],
-    [AC_MSG_RESULT([yes])],
-    [AC_MSG_RESULT([no])
-     AC_MSG_FAILURE([Encfs 1.3 requires FUSE 2.5 or newer.])
-    ]
-)
+dnl AC_MSG_CHECKING([For supported FUSE API version])
+dnl AC_RUN_IFELSE([
+dnl     AC_LANG_PROGRAM([[#include "fuse.h"]],
+dnl [[
+dnl     if (FUSE_MAJOR_VERSION < 2) return -1;
+dnl     if (FUSE_MAJOR_VERSION > 2) return 0;
+dnl     return FUSE_MINOR_VERSION >= 5 ? 0 : -1;
+dnl ]])],
+dnl     [AC_MSG_RESULT([yes])],
+dnl     [AC_MSG_RESULT([no])
+dnl      AC_MSG_FAILURE([Encfs 1.3 requires FUSE 2.5 or newer.])
+dnl     ]
+dnl )
 
 dnl fuse_operations.setxattr was added 2004-03-31
 dnl only enable it if setxattr function is found..

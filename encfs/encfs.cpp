@@ -24,6 +24,7 @@
 #include <dirent.h>
 #include <cerrno>
 #include <sys/statvfs.h>
+#include <sys/vfs.h>
 #include <sys/time.h>
 
 #include <sys/types.h>
@@ -386,13 +387,24 @@ int encfs_symlink(const char *to, const char *from) {
     int oldgid = -1;
     if (ctx->publicFilesystem) {
       fuse_context *context = fuse_get_context();
+#ifndef ANDROID
       olduid = setfsuid(context->uid);
       oldgid = setfsgid(context->gid);
+#else
+      olduid = geteuid();
+      oldgid = getegid();
+      seteuid(context->uid);
+      setegid(context->gid);
+#endif
     }
     res = ::symlink(toCName.c_str(), fromCName.c_str());
+#ifndef ANDROID
     if (olduid >= 0) setfsuid(olduid);
     if (oldgid >= 0) setfsgid(oldgid);
-
+#else
+    if (olduid >= 0) seteuid(olduid);
+    if(oldgid >= 0)  setegid(oldgid);
+#endif
     if (res == -1)
       res = -errno;
     else
@@ -489,7 +501,11 @@ int _do_utimens(EncFS_Context *, const string &cyName,
   tv[1].tv_sec = ts[1].tv_sec;
   tv[1].tv_usec = ts[1].tv_nsec / 1000;
 
+#ifndef ANDROID
   int res = lutimes(cyName.c_str(), tv);
+#else
+  int res = utimes(cyName.c_str(), tv);
+#endif    
   return (res == -1) ? -errno : ESUCCESS;
 }
 

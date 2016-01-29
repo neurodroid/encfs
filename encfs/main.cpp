@@ -52,10 +52,12 @@
 
 #include "i18n.h"
 
+#ifndef ANDROID
 // Fuse version >= 26 requires another argument to fuse_unmount, which we
 // don't have.  So use the backward compatible call instead..
 extern "C" void fuse_unmount_compat22(const char *mountpoint);
 #define fuse_unmount fuse_unmount_compat22
+#endif
 
 /* Arbitrary identifiers for long options that do
  * not have a short version */
@@ -141,6 +143,10 @@ static void usage(const char *name) {
             "Auto unmount after period of inactivity\n"
             "  --anykey\t\t"
             "Do not verify correct key is being used\n"
+#ifdef ANDROID
+            "  --config=PATH\t\t"
+            "Use specified config file\n"
+#endif             
             "  --forcedecode\t\t"
             "decode data even if an error is detected\n"
             "\t\t\t(for filesystems using MAC block headers)\n")
@@ -217,6 +223,9 @@ static bool processArgs(int argc, char *argv[],
       {"fuse-help", 0, 0, 'H'},         // fuse_mount usage
       {"idle", 1, 0, 'i'},              // idle timeout
       {"anykey", 0, 0, 'k'},            // skip key checks
+#ifdef ANDROID
+      {"config", 1, 0, 'c'},            // external config
+#endif
       {"no-default-flags", 0, 0, 'N'},  // don't use default fuse flags
       {"ondemand", 0, 0, 'm'},          // mount on-demand
       {"delaymount", 0, 0, 'M'},        // delay initial mount until use
@@ -287,6 +296,11 @@ static bool processArgs(int argc, char *argv[],
       case 'k':
         out->opts->checkKey = false;
         break;
+#ifdef ANDROID
+      case 'c':
+        out->opts->configOverride.assign( optarg );
+        break;
+#endif
       case 'D':
         out->opts->forceDecode = true;
         break;
@@ -783,7 +797,11 @@ static bool unmountFS(EncFS_Context *ctx) {
     // xgroup(diag)
     rWarning(_("Unmounting filesystem %s due to inactivity"),
              arg->mountPoint.c_str());
+#ifndef ANDROID
     fuse_unmount(arg->mountPoint.c_str());
+#else
+    fuse_unmount(arg->mountPoint.c_str(), NULL);
+#endif
     return true;
   }
 }

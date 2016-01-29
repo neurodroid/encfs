@@ -30,7 +30,7 @@
 #include <cstdlib>
 #include <pthread.h>
 #include <unistd.h>
-#ifdef linux
+#if defined (linux) || defined (ANDROID)
 #include <sys/fsuid.h>
 #endif
 
@@ -491,13 +491,28 @@ int DirNode::mkdir(const char *plaintextPath, mode_t mode, uid_t uid,
   // if uid or gid are set, then that should be the directory owner
   int olduid = -1;
   int oldgid = -1;
+#ifndef ANDROID
   if (uid != 0) olduid = setfsuid(uid);
   if (gid != 0) oldgid = setfsgid(gid);
-
+#else
+  if (uid != 0) {
+    olduid = geteuid();
+    seteuid( uid );
+  }
+  if(gid != 0) {
+    oldgid = getegid();
+    setegid( gid );
+  }
+#endif
   int res = ::mkdir(cyName.c_str(), mode);
 
+#ifndef ANDROID
   if (olduid >= 0) setfsuid(olduid);
   if (oldgid >= 0) setfsgid(oldgid);
+#else
+  if (olduid >= 0) seteuid(olduid);
+  if (oldgid >= 0) setegid(oldgid);
+#endif
 
   if (res == -1) {
     int eno = errno;

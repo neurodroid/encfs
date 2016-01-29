@@ -101,7 +101,9 @@ struct EncFSConfig {
   unsigned char *getKeyData() const;
   unsigned char *getSaltData() const;
 
+#ifndef ANDROID
  private:
+#endif    
   CipherKey makeKey(const char *password, int passwdLen);
 };
 

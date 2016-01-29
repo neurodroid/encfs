@@ -338,7 +338,11 @@ static int cmd_ls(int argc, char **argv) {
         fnode->getAttr(&stbuf);
 
         struct tm stm;
+#ifdef ANDROID
+	localtime_r((const time_t*)&stbuf.st_mtime, &stm);
+#else
         localtime_r(&stbuf.st_mtime, &stm);
+#endif
         stm.tm_year += 1900;
         // TODO: when I add "%s" to the end and name.c_str(), I get a
         // seg fault from within strlen.  Why ???
@@ -594,11 +598,13 @@ static int cmd_showcruft(int argc, char **argv) {
 
   int filesFound = showcruft(rootInfo, "/");
 
+#ifndef ANDROID
   // TODO: the singular version should say "Found an invalid file", but all the translations
   // depend upon this broken singular form, so it isn't easy to change.
   cerr << autosprintf(ngettext("Found %i invalid file.",
                                "Found %i invalid files.", filesFound),
                       filesFound) << "\n";
+#endif
 
   return EXIT_SUCCESS;
 }

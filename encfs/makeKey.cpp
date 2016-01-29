@@ -28,6 +28,9 @@
 
 #include <sys/types.h>
 #include <unistd.h>
+#ifdef ANDROID
+#include <cstdlib>
+#endif
 
 using namespace std;
 

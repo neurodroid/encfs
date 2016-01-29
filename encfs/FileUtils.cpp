@@ -43,6 +43,36 @@
 #include <fstream>
 #include <sstream>
 
+#ifndef FP_INFINITE
+/* Symbolic constants to classify floating point numbers. */
+#define	FP_INFINITE	0x01
+#define	FP_NAN		0x02
+#define	FP_NORMAL	0x04
+#define	FP_SUBNORMAL	0x08
+#define	FP_ZERO		0x10
+#define	fpclassify(x) \
+    ((sizeof (x) == sizeof (float)) ? __fpclassifyf(x) \
+    : (sizeof (x) == sizeof (double)) ? __fpclassifyd(x) \
+    : __fpclassifyl(x))
+
+#define	isfinite(x)					\
+    ((sizeof (x) == sizeof (float)) ? __isfinitef(x)	\
+    : (sizeof (x) == sizeof (double)) ? __isfinite(x)	\
+    : __isfinitel(x))
+#define	isinf(x)					\
+    ((sizeof (x) == sizeof (float)) ? __isinff(x)	\
+    : (sizeof (x) == sizeof (double)) ? isinf(x)	\
+    : __isinfl(x))
+#define	isnan(x)					\
+    ((sizeof (x) == sizeof (float)) ? __isnanf(x)	\
+    : (sizeof (x) == sizeof (double)) ? isnan(x)	\
+    : __isnanl(x))
+#define	isnormal(x)					\
+    ((sizeof (x) == sizeof (float)) ? __isnormalf(x)	\
+    : (sizeof (x) == sizeof (double)) ? __isnormal(x)	\
+    : __isnormall(x))
+#endif
+
 #include <boost/version.hpp>
 #include <boost/archive/xml_iarchive.hpp>
 #include <boost/archive/xml_oarchive.hpp>
@@ -381,6 +411,23 @@ ConfigType readConfig(const string &rootDir,
 
   return Config_None;
 }
+
+#ifdef ANDROID
+/**
+ * Read config file from non-default location
+ */
+ConfigType readConfig_override(const shared_ptr<EncFS_Opts> &opts,
+     	                       const shared_ptr<EncFSConfig> &config) {
+  ConfigType type = Config_None;
+  if(!opts->configOverride.empty()) {
+    if(fileExists(opts->configOverride.c_str()))
+      type = readConfig_load(&ConfigFileMapping[0], opts->configOverride.c_str(), config);
+  } else {
+    type = readConfig(opts->rootDir, config);
+  }
+  return type;
+}
+#endif
 
 /**
  * Read config file in current "V6" XML format, normally named ".encfs6.xml"
@@ -1019,6 +1066,36 @@ RootPtr createV6Config(EncFS_Context *ctx, const shared_ptr<EncFS_Opts> &opts) {
     blockMACRandBytes = 0;  // using uniqueIV, so this isn't necessary
     externalIV = true;
     desiredKDFDuration = ParanoiaKDFDuration;
+#ifdef ANDROID    
+  } else if (configMode == Config_Compatible) {
+    // xgroup(setup)
+    cout << _("Compatible configuration selected.") << "\n";
+    // AES w/ 256 bit key, stream name encoding, no initialization
+    // vectors.
+    keySize = 256;
+    blockSize = DefaultBlockSize;
+    alg = findCipherAlgorithm("AES", keySize);
+    blockMACBytes = 0;
+    blockMACRandBytes = 0;
+    externalIV = false;
+    nameIOIface = StreamNameIO::CurrentInterface();
+    uniqueIV = false;
+    chainedIV = false;
+  } else if (configMode == Config_Quick) {
+    // xgroup(setup)
+    cout << _("Quick configuration selected.") << "\n";
+    // Blowfish w/ 128 bit key, stream name encoding, no
+    // initialization vectors
+    keySize = 128;
+    blockSize = DefaultBlockSize;
+    alg = findCipherAlgorithm("Blowfish", keySize);
+    blockMACBytes = 0;
+    blockMACRandBytes = 0;
+    externalIV = false;
+    nameIOIface = StreamNameIO::CurrentInterface();
+    uniqueIV = false;
+    chainedIV = false;
+#endif
   } else if (configMode == Config_Standard || answer[0] != 'x') {
     // xgroup(setup)
     cout << _("Standard configuration selected.") << "\n";
@@ -1138,6 +1215,11 @@ RootPtr createV6Config(EncFS_Context *ctx, const shared_ptr<EncFS_Opts> &opts) {
   // get user key and use it to encode volume key
   CipherKey userKey;
   rDebug("useStdin: %i", useStdin);
+#ifdef ANDROID
+  if (!opts->password.empty())
+    userKey = config->makeKey(opts->password.c_str(), opts->password.length());
+  else
+#endif        
   if (useStdin) {
     if (annotate) cerr << "$PROMPT$ new_passwd" << endl;
     userKey = config->getUserKey(useStdin);
@@ -1417,7 +1499,11 @@ CipherKey EncFSConfig::getUserKey(const std::string &passProg,
 
   if (pid == 0) {
     const char *argv[4];
+#ifdef ANDROID
+    argv[0] = "/system/bin/sh";
+#else
     argv[0] = "/bin/sh";
+#endif
     argv[1] = "-c";
     argv[2] = passProg.c_str();
     argv[3] = 0;
@@ -1500,7 +1586,11 @@ RootPtr initFS(EncFS_Context *ctx, const shared_ptr<EncFS_Opts> &opts) {
   RootPtr rootInfo;
   shared_ptr<EncFSConfig> config(new EncFSConfig);
 
+#ifdef ANDROID
+  if (readConfig_override(opts, config) != Config_None) {
+#else
   if (readConfig(opts->rootDir, config) != Config_None) {
+#endif
     if (config->blockMACBytes == 0 && opts->requireMac) {
       cout
          << _("The configuration disabled MAC, but you passed --require-macs\n");
@@ -1538,6 +1628,11 @@ RootPtr initFS(EncFS_Context *ctx, const shared_ptr<EncFS_Opts> &opts) {
     // get user key
     CipherKey userKey;
 
+#ifdef ANDROID
+    if (!opts->password.empty())
+      userKey = config->makeKey(opts->password.c_str(), opts->password.length());
+    else
+#endif
     if (opts->passwordProgram.empty()) {
       rDebug("useStdin: %i", opts->useStdin);
       if (opts->annotate) cerr << "$PROMPT$ passwd" << endl;

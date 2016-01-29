@@ -150,14 +150,24 @@ int FileNode::mknod(mode_t mode, dev_t rdev, uid_t uid, gid_t gid) {
   int olduid = -1;
   int oldgid = -1;
   if (uid != 0) {
+#ifndef ANDROID
     olduid = setfsuid(uid);
+#else
+    olduid = geteuid();
+    seteuid(uid);
+#endif
     if (olduid == -1) {
       rInfo("setfsuid error: %s", strerror(errno));
       return -EPERM;
     }
   }
   if (gid != 0) {
+#ifndef ANDROID
     oldgid = setfsgid(gid);
+#else
+    oldgid = getegid();
+    setegid(gid);
+#endif
     if (oldgid == -1) {
       rInfo("setfsgid error: %s", strerror(errno));
       return -EPERM;
@@ -177,8 +187,13 @@ int FileNode::mknod(mode_t mode, dev_t rdev, uid_t uid, gid_t gid) {
   else
     res = ::mknod(_cname.c_str(), mode, rdev);
 
+#ifndef ANDROID
   if (olduid >= 0) setfsuid(olduid);
   if (oldgid >= 0) setfsgid(oldgid);
+#else
+  if (olduid >= 0) seteuid(olduid);
+  if (oldgid >= 0) setegid(oldgid);
+#endif
 
   if (res == -1) {
     int eno = errno;
@@ -247,7 +262,7 @@ int FileNode::sync(bool datasync) {
   int fh = io->open(O_RDONLY);
   if (fh >= 0) {
     int res = -EIO;
-#ifdef linux
+#if defined(linux) && !defined (ANDROID)
     if (datasync)
       res = fdatasync(fh);
     else
